@@ -31,9 +31,9 @@ internal class Context(ReadOnlyMemory<char> content, Action<Token> emitCallback)
         return true;
     }
 
-    public ReadOnlyMemory<char>? TryPeek(int count) => _content.Length > _cursor + count
-        ? _content[_cursor..(_cursor + count)]
-        : null;
+    public ReadOnlySpan<char> TryPeek(int count) => _content.Length > _cursor + count
+        ? _content.Span[_cursor..(_cursor + count)]
+        : [];
 
     public void Consume(int count)
     {
@@ -57,14 +57,16 @@ public static class Tokenizer
     {
         switch (context.State)
         {
-            case State.Data: ProcessDataState(context); break;
-            case State.TagOpen: ProcessTagOpenState(context); break;
+            case State.Data: ProcessData(context); break;
+            case State.TagOpen: ProcessTagOpen(context); break;
             case State.MarkupDeclarationOpen: ProcessMarkupDeclarationOpen(context); break;
+            case State.Doctype: ProcessDoctype(context); break;
+            case State.BeforeDoctypeName: ProcessBeforeDoctypeName(context); break;
             default: throw new NotImplementedException($"Unknown state: {context}");
         }
     }
 
-    private static void ProcessDataState(Context context)
+    private static void ProcessData(Context context)
     {
         if (!context.TryConsumeNextInput(out var currentInput))
         {
@@ -77,11 +79,11 @@ public static class Tokenizer
                 context.State = State.TagOpen;
                 return;
             default:
-                throw new NotImplementedException($"{nameof(ProcessDataState)} cannot handle '{currentInput}' yet.");
+                throw new NotImplementedException($"{nameof(ProcessData)} cannot handle '{currentInput}' yet.");
         }
     }
 
-    private static void ProcessTagOpenState(Context context)
+    private static void ProcessTagOpen(Context context)
     {
         if (!context.TryConsumeNextInput(out var currentInput))
         {
@@ -94,7 +96,7 @@ public static class Tokenizer
                 context.State = State.MarkupDeclarationOpen;
                 return;
             default:
-                throw new NotImplementedException($"{nameof(ProcessDataState)} cannot handle '{currentInput}' yet.");
+                throw new NotImplementedException($"{nameof(ProcessData)} cannot handle '{currentInput}' yet.");
         }
     }
 
@@ -102,7 +104,7 @@ public static class Tokenizer
     {
         const string doctype = "DOCTYPE";
         var maybeDoctype = context.TryPeek(doctype.Length);
-        if (maybeDoctype is not null && maybeDoctype.Value.Span.Equals(doctype.AsSpan(), StringComparison.InvariantCultureIgnoreCase))
+        if (maybeDoctype.Equals(doctype.AsSpan(), StringComparison.InvariantCultureIgnoreCase))
         {
             context.Consume(doctype.Length);
             context.State = State.Doctype;
@@ -110,6 +112,25 @@ public static class Tokenizer
         }
         else throw new NotImplementedException($"{nameof(ProcessMarkupDeclarationOpen)}");
     }
+
+    private static void ProcessDoctype(Context context)
+    {
+        if (!context.TryConsumeNextInput(out var currentInput)) throw new NotImplementedException($"EOF in {nameof(ProcessDoctype)} is not implemented.");
+        if (IsWhiteSpaceOrSeparator(currentInput.Value))
+        {
+            context.State = State.BeforeDoctypeName;
+            return;
+        }
+        throw new NotImplementedException($"{nameof(ProcessDoctype)}: '{currentInput}' {context}");
+    }
+
+    private static void ProcessBeforeDoctypeName(Context context)
+    {
+        while (context.TryConsumeNextInput(out var currentInput) && IsWhiteSpaceOrSeparator(currentInput.Value)) { /* ignoring */ }
+        throw new NotImplementedException($"{nameof(ProcessBeforeDoctypeName)}: 'currentInput' {context}");
+    }
+
+    private static bool IsWhiteSpaceOrSeparator(char value) => value == ' ' || value == '\t' || value == '\u000A' || value == '\u000C';
 
     public enum State
     {
