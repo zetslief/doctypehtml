@@ -35,6 +35,15 @@ public record StartTagToken(string Name) : Token
         public StartTagToken Build() => new(NameBuilder.ToString());
     }
 }
+public record EndTagToken(string Name) : Token
+{
+    public sealed class Builder : IBuilder<EndTagToken>
+    {
+        private StringBuilder NameBuilder => field ??= new();
+        public Builder AppendToName(char @char) { NameBuilder.Append(@char); return this; }
+        public EndTagToken Build() => new(NameBuilder.ToString());
+    }
+}
 public record CharacterToken(char Character) : Token;
 public record EndOfFileToken : Token;
 
@@ -44,7 +53,7 @@ internal class Context(ReadOnlyMemory<char> content, Action<Token> emitCallback)
     private readonly Action<Token> _onEmit = emitCallback;
     private int _cursor = 0;
 
-    public bool EndOfContent => _content.Length - 1 <= _cursor;
+    public bool EndOfContent => _content.Length <= _cursor;
     public Tokenizer.State State { get; set; } = Tokenizer.State.Data;
     public IBuilder? CurrentTokenBuilder { get; set; } = null;
 
@@ -100,6 +109,7 @@ public static class Tokenizer
             case State.BeforeDoctypeName: ProcessBeforeDoctypeName(context); break;
             case State.DoctypeName: ProcessDoctypeName(context); break;
             case State.TagName: ProcessTagName(context); break;
+            case State.EndTagOpen: ProcessEndTagOpen(context); break;
             default: throw new NotImplementedException($"Unknown state: {context}");
         }
     }
@@ -137,8 +147,9 @@ public static class Tokenizer
         switch (currentInput)
         {
             case '!':
-                context.State = State.MarkupDeclarationOpen;
-                return;
+                context.State = State.MarkupDeclarationOpen; return;
+            case '/':
+                context.State = State.EndTagOpen; return;
             case var asciiAlpha when char.IsAsciiLetter(currentInput.Value):
                 context.CurrentTokenBuilder = new StartTagToken.Builder();
                 context.State = State.TagName;
@@ -232,29 +243,49 @@ public static class Tokenizer
     private static void ProcessTagName(Context context)
     {
         if (!context.TryConsumeNextInput(out var maybeCurrentInput)) throw new NotImplementedException($"EOF in {nameof(ProcessDoctypeName)} is not implemented.");
-        if (context.CurrentTokenBuilder is not StartTagToken.Builder builder) throw new InvalidOperationException("Start tag token builder is not present.");
         var currentInput = maybeCurrentInput.Value;
-        if (IsWhiteSpaceOrSeparator(currentInput))
-        {
-            context.State = State.BeforeAttributeName;
-        }
-        else if (char.IsAsciiLetterUpper(currentInput))
-        {
-            builder.AppendToName(char.ToLowerInvariant(currentInput));
-        }
+        char? addToBuilder = null;
+        if (IsWhiteSpaceOrSeparator(currentInput)) context.State = State.BeforeAttributeName;
+        else if (char.IsAsciiLetterUpper(currentInput)) addToBuilder = char.ToLowerInvariant(currentInput);
         else if (IsNull(currentInput))
         {
             // TODO: process parse error properly.
-            builder.AppendToName(ReplacementChar);
+            addToBuilder = ReplacementChar;
         }
         else if (currentInput == '>')
         {
             context.State = State.Data;
             context.EmitCurrent();
         }
+        else addToBuilder = currentInput;
+        if (addToBuilder is null) return;
+        switch (context.CurrentTokenBuilder)
+        {
+            case StartTagToken.Builder startBuilder: startBuilder.AppendToName(addToBuilder.Value); break;
+            case EndTagToken.Builder endBuilder: endBuilder.AppendToName(addToBuilder.Value); break;
+            default: throw new InvalidOperationException("Start tag token builder is not present.");
+        }
+    }
+
+    private static void ProcessEndTagOpen(Context context)
+    {
+        if (!context.TryConsumeNextInput(out var maybeCurrentInput)) throw new NotImplementedException($"EOF in {nameof(ProcessDoctypeName)} is not implemented.");
+        var currentInput = maybeCurrentInput.Value;
+        if (char.IsAsciiLetter(currentInput))
+        {
+            context.CurrentTokenBuilder = new EndTagToken.Builder();
+            context.Reconsume();
+            context.State = State.TagName;
+        }
+        else if (currentInput == '>')
+        {
+            // TODO: process parse error properly.
+            context.State = State.Data;
+        }
         else
         {
-            builder.AppendToName(currentInput);
+            // TODO: This is an invalid-first-character-of-tag-name parse error. Create a comment token whose data is the empty string. Reconsume in the bogus comment state.
+            throw new NotImplementedException($"{nameof(ProcessEndTagOpen)}: '{currentInput}' {context}");
         }
     }
 
