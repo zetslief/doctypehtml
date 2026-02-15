@@ -80,7 +80,7 @@ internal class Context(ReadOnlyMemory<char> content, Action<Token> emitCallback)
 
 public static class Tokenizer
 {
-    private const char REPLACEMENT_CHAR = '\uFFFD';
+    private const char ReplacementChar = '\uFFFD';
 
     public static void Run(ReadOnlyMemory<char> content, Action<Token> tokenEmitCallback)
     {
@@ -99,6 +99,7 @@ public static class Tokenizer
             case State.Doctype: ProcessDoctype(context); break;
             case State.BeforeDoctypeName: ProcessBeforeDoctypeName(context); break;
             case State.DoctypeName: ProcessDoctypeName(context); break;
+            case State.TagName: ProcessTagName(context); break;
             default: throw new NotImplementedException($"Unknown state: {context}");
         }
     }
@@ -142,7 +143,7 @@ public static class Tokenizer
                 context.CurrentTokenBuilder = new StartTagToken.Builder();
                 context.State = State.TagName;
                 context.Reconsume();
-                break; 
+                break;
             default:
                 throw new NotImplementedException($"{nameof(ProcessTagOpen)} cannot handle '{currentInput}' yet.");
         }
@@ -220,11 +221,40 @@ public static class Tokenizer
         else if (IsNull(currentInput))
         {
             // TODO: handle parse error.
-            doctypeTokenBuilder.AppendToName(REPLACEMENT_CHAR);
+            doctypeTokenBuilder.AppendToName(ReplacementChar);
         }
         else
         {
             doctypeTokenBuilder.AppendToName(currentInput);
+        }
+    }
+
+    private static void ProcessTagName(Context context)
+    {
+        if (!context.TryConsumeNextInput(out var maybeCurrentInput)) throw new NotImplementedException($"EOF in {nameof(ProcessDoctypeName)} is not implemented.");
+        if (context.CurrentTokenBuilder is not StartTagToken.Builder builder) throw new InvalidOperationException("Start tag token builder is not present.");
+        var currentInput = maybeCurrentInput.Value;
+        if (IsWhiteSpaceOrSeparator(currentInput))
+        {
+            context.State = State.BeforeAttributeName;
+        }
+        else if (char.IsAsciiLetterUpper(currentInput))
+        {
+            builder.AppendToName(char.ToLowerInvariant(currentInput));
+        }
+        else if (IsNull(currentInput))
+        {
+            // TODO: process parse error properly.
+            builder.AppendToName(ReplacementChar);
+        }
+        else if (currentInput == '>')
+        {
+            context.State = State.Data;
+            context.EmitCurrent();
+        }
+        else
+        {
+            builder.AppendToName(currentInput);
         }
     }
 
