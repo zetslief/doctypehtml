@@ -26,6 +26,15 @@ public record DoctypeToken(string Name) : Token
         public DoctypeToken Build() => new(NameBuilder.ToString());
     }
 }
+public record StartTagToken(string Name) : Token
+{
+    public sealed class Builder : IBuilder<StartTagToken>
+    {
+        private StringBuilder NameBuilder => field ??= new();
+        public Builder AppendToName(char @char) { NameBuilder.Append(@char); return this; }
+        public StartTagToken Build() => new(NameBuilder.ToString());
+    }
+}
 public record CharacterToken(char Character) : Token;
 public record EndOfFileToken : Token;
 
@@ -53,6 +62,8 @@ internal class Context(ReadOnlyMemory<char> content, Action<Token> emitCallback)
         character = _content.Span[_cursor++];
         return true;
     }
+
+    public void Reconsume() => _cursor--;
 
     public ReadOnlySpan<char> TryPeek(int count) => _content.Length > _cursor + count
         ? _content.Span[_cursor..(_cursor + count)]
@@ -127,8 +138,13 @@ public static class Tokenizer
             case '!':
                 context.State = State.MarkupDeclarationOpen;
                 return;
+            case var asciiAlpha when char.IsAsciiLetter(currentInput.Value):
+                context.CurrentTokenBuilder = new StartTagToken.Builder();
+                context.State = State.TagName;
+                context.Reconsume();
+                break; 
             default:
-                throw new NotImplementedException($"{nameof(ProcessData)} cannot handle '{currentInput}' yet.");
+                throw new NotImplementedException($"{nameof(ProcessTagOpen)} cannot handle '{currentInput}' yet.");
         }
     }
 
