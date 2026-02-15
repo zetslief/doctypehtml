@@ -3,13 +3,23 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace DoctypeHtml.Parser;
 
+public interface IBuilder
+{
+    Token Build();
+}
+public interface IBuilder<T> : IBuilder where T: Token
+{
+    new T Build();
+    Token IBuilder.Build() => Build();
+}
+
 public abstract record Token()
 {
     internal static EndOfFileToken CreateEndOfFileToken() => new();
 }
 public record DoctypeToken(string Name) : Token
 {
-    public sealed class Builder
+    public sealed class Builder : IBuilder<DoctypeToken>
     {
         private StringBuilder NameBuilder => field ??= new();
         public Builder AppendToName(char @char) { NameBuilder.Append(@char); return this; }
@@ -26,9 +36,10 @@ internal class Context(ReadOnlyMemory<char> content, Action<Token> emitCallback)
 
     public bool EndOfContent => _content.Length - 1 <= _cursor;
     public Tokenizer.State State { get; set; } = Tokenizer.State.Data;
-    public Token? CurrentToken { get; set; }= null;
+    public IBuilder? CurrentTokenBuilder { get; set; }= null;
 
     public void Emit(Token token) => _onEmit(token);
+    public void EmitCurrent() => _onEmit(CurrentTokenBuilder?.Build() ?? throw new InvalidOperationException("Cannot emit null token!"));
 
     public bool TryConsumeNextInput([NotNullWhen(true)] out char? character)
     {
@@ -57,6 +68,8 @@ internal class Context(ReadOnlyMemory<char> content, Action<Token> emitCallback)
 
 public static class Tokenizer
 {
+    private const char REPLACEMENT_CHAR = '\uFFFD';
+
     public static void Run(ReadOnlyMemory<char> content, Action<Token> tokenEmitCallback)
     {
         Context context = new(content, tokenEmitCallback);
@@ -73,6 +86,7 @@ public static class Tokenizer
             case State.MarkupDeclarationOpen: ProcessMarkupDeclarationOpen(context); break;
             case State.Doctype: ProcessDoctype(context); break;
             case State.BeforeDoctypeName: ProcessBeforeDoctypeName(context); break;
+            case State.DoctypeName: ProcessDoctypeName(context); break;
             default: throw new NotImplementedException($"Unknown state: {context}");
         }
     }
@@ -146,23 +160,53 @@ public static class Tokenizer
         var currentInput = maybeCurrentInput!.Value;
         if (char.IsAsciiLetterUpper(currentInput))
         {
-            context.CurrentToken = new DoctypeToken.Builder().AppendToName(currentInput).Build();
+            context.CurrentTokenBuilder = new DoctypeToken.Builder().AppendToName(currentInput);
             context.State = State.DoctypeName;
         }
-        else if (currentInput == '\u0000')
+        else if (IsNull(currentInput))
         {
-            context.CurrentToken = new DoctypeToken.Builder().AppendToName('\uFFFD').Build();
+            context.CurrentTokenBuilder = new DoctypeToken.Builder().AppendToName('\uFFFD');
             context.State = State.DoctypeName;
         }
         else if (currentInput == '>') throw new NotImplementedException($"{nameof(ProcessBeforeDoctypeName)}: handling '>' token.");
         else
         {
-            context.CurrentToken = new DoctypeToken.Builder().AppendToName(currentInput).Build();
+            context.CurrentTokenBuilder = new DoctypeToken.Builder().AppendToName(currentInput);
             context.State = State.DoctypeName;
         }
     }
 
+    private static void ProcessDoctypeName(Context context)
+    {
+        if (context.CurrentTokenBuilder is not DoctypeToken.Builder doctypeTokenBuilder) throw new InvalidOperationException($"Doctype token builder is not present.");
+        if (!context.TryConsumeNextInput(out var maybeCurrentInput)) throw new NotImplementedException($"EOF in {nameof(ProcessDoctypeName)} is not implemented.");
+        var currentInput = maybeCurrentInput.Value;
+        if (IsWhiteSpaceOrSeparator(currentInput))
+        {
+            context.State = State.AfterDoctypeName;
+        }
+        else if (currentInput == '>')
+        {
+            context.State = State.Data;
+            context.EmitCurrent();
+        }
+        else if (char.IsAsciiLetterUpper(currentInput))
+        {
+            doctypeTokenBuilder.AppendToName(char.ToLowerInvariant(currentInput));
+        }
+        else if (IsNull(currentInput))
+        {
+            // TODO: handle parse error.
+            doctypeTokenBuilder.AppendToName(REPLACEMENT_CHAR);
+        }
+        else
+        {
+            doctypeTokenBuilder.AppendToName(currentInput);
+        }
+    }
+
     private static bool IsWhiteSpaceOrSeparator(char value) => value == ' ' || value == '\t' || value == '\u000A' || value == '\u000C';
+    private static bool IsNull(char value) => value == '\u0000';
 
     public enum State
     {
