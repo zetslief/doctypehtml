@@ -1,10 +1,20 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.Text;
+using System.Diagnostics.CodeAnalysis;
 
 namespace DoctypeHtml.Parser;
 
 public abstract record Token()
 {
     internal static EndOfFileToken CreateEndOfFileToken() => new();
+}
+public record DoctypeToken(string Name) : Token
+{
+    public sealed class Builder
+    {
+        private StringBuilder NameBuilder => field ??= new();
+        public Builder AppendToName(char @char) { NameBuilder.Append(@char); return this; }
+        public DoctypeToken Build() => new(NameBuilder.ToString());
+    }
 }
 public record EndOfFileToken : Token;
 
@@ -16,6 +26,7 @@ internal class Context(ReadOnlyMemory<char> content, Action<Token> emitCallback)
 
     public bool EndOfContent => _content.Length - 1 <= _cursor;
     public Tokenizer.State State { get; set; } = Tokenizer.State.Data;
+    public Token? CurrentToken { get; set; }= null;
 
     public void Emit(Token token) => _onEmit(token);
 
@@ -126,8 +137,29 @@ public static class Tokenizer
 
     private static void ProcessBeforeDoctypeName(Context context)
     {
-        while (context.TryConsumeNextInput(out var currentInput) && IsWhiteSpaceOrSeparator(currentInput.Value)) { /* ignoring */ }
-        throw new NotImplementedException($"{nameof(ProcessBeforeDoctypeName)}: 'currentInput' {context}");
+        var success = context.TryConsumeNextInput(out var maybeCurrentInput);
+        while (success && IsWhiteSpaceOrSeparator(maybeCurrentInput!.Value))
+        {
+            success = context.TryConsumeNextInput(out maybeCurrentInput);
+        }
+        if (!success) throw new NotImplementedException($"{nameof(ProcessBeforeDoctypeName)}: '{maybeCurrentInput}' {context}");
+        var currentInput = maybeCurrentInput!.Value;
+        if (char.IsAsciiLetterUpper(currentInput))
+        {
+            context.CurrentToken = new DoctypeToken.Builder().AppendToName(currentInput).Build();
+            context.State = State.DoctypeName;
+        }
+        else if (currentInput == '\u0000')
+        {
+            context.CurrentToken = new DoctypeToken.Builder().AppendToName('\uFFFD').Build();
+            context.State = State.DoctypeName;
+        }
+        else if (currentInput == '>') throw new NotImplementedException($"{nameof(ProcessBeforeDoctypeName)}: handling '>' token.");
+        else
+        {
+            context.CurrentToken = new DoctypeToken.Builder().AppendToName(currentInput).Build();
+            context.State = State.DoctypeName;
+        }
     }
 
     private static bool IsWhiteSpaceOrSeparator(char value) => value == ' ' || value == '\t' || value == '\u000A' || value == '\u000C';
