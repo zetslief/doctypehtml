@@ -1,5 +1,5 @@
-﻿using System.Text;
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Text;
 
 namespace DoctypeHtml.Parser;
 
@@ -7,7 +7,7 @@ public interface IBuilder
 {
     Token Build();
 }
-public interface IBuilder<T> : IBuilder where T: Token
+public interface IBuilder<T> : IBuilder where T : Token
 {
     new T Build();
     Token IBuilder.Build() => Build();
@@ -26,6 +26,7 @@ public record DoctypeToken(string Name) : Token
         public DoctypeToken Build() => new(NameBuilder.ToString());
     }
 }
+public record CharacterToken(char Character) : Token;
 public record EndOfFileToken : Token;
 
 internal class Context(ReadOnlyMemory<char> content, Action<Token> emitCallback)
@@ -36,7 +37,7 @@ internal class Context(ReadOnlyMemory<char> content, Action<Token> emitCallback)
 
     public bool EndOfContent => _content.Length - 1 <= _cursor;
     public Tokenizer.State State { get; set; } = Tokenizer.State.Data;
-    public IBuilder? CurrentTokenBuilder { get; set; }= null;
+    public IBuilder? CurrentTokenBuilder { get; set; } = null;
 
     public void Emit(Token token) => _onEmit(token);
     public void EmitCurrent() => _onEmit(CurrentTokenBuilder?.Build() ?? throw new InvalidOperationException("Cannot emit null token!"));
@@ -100,11 +101,17 @@ public static class Tokenizer
         }
         switch (currentInput)
         {
+            case '&':
+                throw new NotImplementedException($"{nameof(ProcessData)} cannot handle '{currentInput}' yet.");
             case '<':
-                context.State = State.TagOpen;
+                context.State = State.TagOpen; return;
+            case '\u0000':
+                // TODO: process parse error properly.
+                context.Emit(new CharacterToken(currentInput.Value));
                 return;
             default:
-                throw new NotImplementedException($"{nameof(ProcessData)} cannot handle '{currentInput}' yet.");
+                context.Emit(new CharacterToken(currentInput.Value));
+                break;
         }
     }
 
