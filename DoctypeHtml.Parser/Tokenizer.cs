@@ -31,7 +31,10 @@ public record StartTagToken(string Name) : Token
     public sealed class Builder : IBuilder<StartTagToken>
     {
         private StringBuilder NameBuilder => field ??= new();
+        private (string Name, string Value)? _attribute = null;
+        private Dictionary<string, string?> Attributes => field ??= new();
         public Builder AppendToName(char @char) { NameBuilder.Append(@char); return this; }
+        public Builder StartAttribute() { _attribute = (string.Empty, string.Empty); return this; }
         public StartTagToken Build() => new(NameBuilder.ToString());
     }
 }
@@ -72,7 +75,11 @@ internal class Context(ReadOnlyMemory<char> content, Action<Token> emitCallback)
         return true;
     }
 
-    public void Reconsume() => _cursor--;
+    public void ReconsumeInState(Tokenizer.State state)
+    {
+        _cursor--;
+        State = state;
+    }
 
     public ReadOnlySpan<char> TryPeek(int count) => _content.Length > _cursor + count
         ? _content.Span[_cursor..(_cursor + count)]
@@ -110,6 +117,7 @@ public static class Tokenizer
             case State.DoctypeName: ProcessDoctypeName(context); break;
             case State.TagName: ProcessTagName(context); break;
             case State.EndTagOpen: ProcessEndTagOpen(context); break;
+            case State.BeforeAttributeName: ProcessBeforeAttributeName(context); break;
             default: throw new NotImplementedException($"Unknown state: {context}");
         }
     }
@@ -152,8 +160,7 @@ public static class Tokenizer
                 context.State = State.EndTagOpen; return;
             case var asciiAlpha when char.IsAsciiLetter(currentInput.Value):
                 context.CurrentTokenBuilder = new StartTagToken.Builder();
-                context.State = State.TagName;
-                context.Reconsume();
+                context.ReconsumeInState(State.TagName);
                 break;
             default:
                 throw new NotImplementedException($"{nameof(ProcessTagOpen)} cannot handle '{currentInput}' yet.");
@@ -274,8 +281,7 @@ public static class Tokenizer
         if (char.IsAsciiLetter(currentInput))
         {
             context.CurrentTokenBuilder = new EndTagToken.Builder();
-            context.Reconsume();
-            context.State = State.TagName;
+            context.ReconsumeInState(State.TagName);
         }
         else if (currentInput == '>')
         {
@@ -286,6 +292,25 @@ public static class Tokenizer
         {
             // TODO: This is an invalid-first-character-of-tag-name parse error. Create a comment token whose data is the empty string. Reconsume in the bogus comment state.
             throw new NotImplementedException($"{nameof(ProcessEndTagOpen)}: '{currentInput}' {context}");
+        }
+    }
+
+    private static void ProcessBeforeAttributeName(Context context)
+    {
+        context.TryConsumeNextInput(out var maybeCurrentInput);
+        if (maybeCurrentInput is null or '/' or '>')
+        {
+            context.ReconsumeInState(State.AfterAttributeName);
+            return;
+        }
+        var currentInput = maybeCurrentInput.Value;
+        if (IsWhiteSpaceOrSeparator(currentInput)) return;
+        else if (currentInput == '=') throw new NotImplementedException($"{nameof(ProcessBeforeAttributeName)} is not implemented for '=' case");
+        else if (context.CurrentTokenBuilder is not StartTagToken.Builder builder) throw new InvalidOperationException("Current tag builder does not exist.");
+        else
+        {
+            builder.StartAttribute();
+            context.ReconsumeInState(State.AttributeName);
         }
     }
 
