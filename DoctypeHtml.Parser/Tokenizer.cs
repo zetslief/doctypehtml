@@ -47,6 +47,13 @@ public record StartTagToken(string Name) : Token
             return this;
         }
 
+        public Builder AppendAttributeValue(char value)
+        {
+            if (_attribute is null) throw new InvalidOperationException("Cannot append to attribute value - attribute not started.");
+            _attribute = (_attribute.Value.Name, _attribute.Value.Value + value);
+            return this;
+        }
+
         public StartTagToken Build() => new(NameBuilder.ToString());
     }
 }
@@ -72,6 +79,7 @@ internal class Context(ReadOnlyMemory<char> content, Action<Token> emitCallback)
 
     public bool EndOfContent => _content.Length <= _cursor;
     public Tokenizer.State State { get; set; } = Tokenizer.State.Data;
+    public Tokenizer.State? ReturnState { get; set; } = null;
     public IBuilder? CurrentTokenBuilder { get; set; } = null;
 
     public void Emit(Token token) => _onEmit(token);
@@ -134,6 +142,7 @@ public static class Tokenizer
             case State.BeforeAttributeName: ProcessBeforeAttributeName(context); break;
             case State.AttributeName: ProcessAttributeName(context); break;
             case State.BeforeAttributeValue: ProcessBeforeAttributeValue(context); break;
+            case State.AttributeValueDoubleQuoted: ProcessAttributeValueDoubleQuoted(context); break;
             default: throw new NotImplementedException($"Unknown state: {context}");
         }
     }
@@ -378,6 +387,35 @@ public static class Tokenizer
             context.EmitCurrent();
         }
         else context.ReconsumeInState(State.AttributeValueUnquoted);
+    }
+
+    private static void ProcessAttributeValueDoubleQuoted(Context context)
+    {
+        context.TryConsumeNextInput(out var maybeCurrentInput);
+        if (maybeCurrentInput is null)
+        {
+            // This is an eof-in-tag parse error. Emit an end-of-file token.
+            context.Emit(new EndOfFileToken());
+            return;
+        }
+
+        var currentInput = maybeCurrentInput.Value;
+        if (currentInput is '"') context.State = State.AfterAttributeValueQuoted;
+        else if (currentInput is '&')
+        {
+            context.ReturnState = State.AttributeValueDoubleQuoted;
+            context.State = State.CharacterReference;
+        }
+
+        var builder = context.CurrentTokenBuilder as StartTagToken.Builder
+            ?? throw new InvalidOperationException($"Invalid builder. Expected start tag token builder. Current: {context.CurrentTokenBuilder}.");;
+
+        if (currentInput is '\0')
+        {
+            // TODO: This is an unexpected-null-character parse error.
+            builder.AppendAttributeValue(ReplacementChar);
+        }
+        else builder.AppendAttributeValue(currentInput);
     }
 
     private static bool IsWhiteSpaceOrSeparator(char value) => value == ' ' || value == '\t' || value == '\u000A' || value == '\u000C';
