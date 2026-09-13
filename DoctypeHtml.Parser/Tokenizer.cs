@@ -133,6 +133,7 @@ public static class Tokenizer
             case State.EndTagOpen: ProcessEndTagOpen(context); break;
             case State.BeforeAttributeName: ProcessBeforeAttributeName(context); break;
             case State.AttributeName: ProcessAttributeName(context); break;
+            case State.BeforeAttributeValue: ProcessBeforeAttributeValue(context); break;
             default: throw new NotImplementedException($"Unknown state: {context}");
         }
     }
@@ -363,6 +364,20 @@ public static class Tokenizer
             // TODO: This is an unexpected-null-character parse error.
             builder.AppendAttributeName(currentInput);
         }
+    }
+
+    private static void ProcessBeforeAttributeValue(Context context)
+    {
+        var maybeCurrentInput = ConsumeAndSkipAllOf(context, '\t', '\n', '\f', ' ');
+        if (maybeCurrentInput is '"') context.State = State.AttributeValueDoubleQuoted;
+        else if (maybeCurrentInput is '\'') context.State = State.AttributeValueSingleQuoted;
+        else if (maybeCurrentInput is '>')
+        {
+            // TODO: This is a missing-attribute-value parse error.
+            context.State = State.Data;
+            context.EmitCurrent();
+        }
+        else context.ReconsumeInState(State.AttributeValueUnquoted);
     }
 
     private static bool IsWhiteSpaceOrSeparator(char value) => value == ' ' || value == '\t' || value == '\u000A' || value == '\u000C';
