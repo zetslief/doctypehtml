@@ -143,6 +143,7 @@ public static class Tokenizer
             case State.AttributeName: ProcessAttributeName(context); break;
             case State.BeforeAttributeValue: ProcessBeforeAttributeValue(context); break;
             case State.AttributeValueDoubleQuoted: ProcessAttributeValueDoubleQuoted(context); break;
+            case State.AfterAttributeValueQuoted: ProcessAfterAttributeValueQuoted(context); break;
             default: throw new NotImplementedException($"Unknown state: {context}");
         }
     }
@@ -398,7 +399,6 @@ public static class Tokenizer
             context.Emit(new EndOfFileToken());
             return;
         }
-
         var currentInput = maybeCurrentInput.Value;
         if (currentInput is '"') context.State = State.AfterAttributeValueQuoted;
         else if (currentInput is '&')
@@ -416,6 +416,37 @@ public static class Tokenizer
             builder.AppendAttributeValue(ReplacementChar);
         }
         else builder.AppendAttributeValue(currentInput);
+    }
+
+    private static void ProcessAfterAttributeValueQuoted(Context context)
+    {
+        context.TryConsumeNextInput(out var maybeCurrentInput);
+        if (maybeCurrentInput is null)
+        {
+            // This is an eof-in-tag parse error. Emit an end-of-file token.
+            context.Emit(new EndOfFileToken());
+            return;
+        }
+
+        var currentInput = maybeCurrentInput.Value;
+        if (currentInput is '\t' or '\n' or '\f' or ' ')
+        {
+            context.State = State.BeforeAttributeName;
+        }
+        else if (currentInput is '/')
+        {
+            context.State = State.SelfClosingStartTag;
+        }
+        else if (currentInput is '>')
+        {
+            context.State = State.Data;
+            context.EmitCurrent();
+        }
+        else
+        {
+            // TODO: This is a missing-whitespace-between-attributes parse error.
+            context.ReconsumeInState(State.BeforeAttributeName);
+        }
     }
 
     private static bool IsWhiteSpaceOrSeparator(char value) => value == ' ' || value == '\t' || value == '\u000A' || value == '\u000C';
