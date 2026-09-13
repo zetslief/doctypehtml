@@ -1,4 +1,5 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 
 namespace DoctypeHtml.Parser;
@@ -7,6 +8,7 @@ public interface IBuilder
 {
     Token Build();
 }
+
 public interface IBuilder<T> : IBuilder where T : Token
 {
     new T Build();
@@ -17,6 +19,7 @@ public abstract record Token()
 {
     internal static EndOfFileToken CreateEndOfFileToken() => new();
 }
+
 public record DoctypeToken(string Name) : Token
 {
     public sealed class Builder : IBuilder<DoctypeToken>
@@ -26,6 +29,7 @@ public record DoctypeToken(string Name) : Token
         public DoctypeToken Build() => new(NameBuilder.ToString());
     }
 }
+
 public record StartTagToken(string Name) : Token
 {
     public sealed class Builder : IBuilder<StartTagToken>
@@ -35,9 +39,18 @@ public record StartTagToken(string Name) : Token
         private Dictionary<string, string?> Attributes => field ??= new();
         public Builder AppendToName(char @char) { NameBuilder.Append(@char); return this; }
         public Builder StartAttribute() { _attribute = (string.Empty, string.Empty); return this; }
+
+        public Builder AppendAttributeName(char value)
+        {
+            if (_attribute is null) throw new InvalidOperationException("Cannot append to attribute name - attribute not started.");
+            _attribute = (_attribute.Value.Name + value, _attribute.Value.Value);
+            return this;
+        }
+
         public StartTagToken Build() => new(NameBuilder.ToString());
     }
 }
+
 public record EndTagToken(string Name) : Token
 {
     public sealed class Builder : IBuilder<EndTagToken>
@@ -47,6 +60,7 @@ public record EndTagToken(string Name) : Token
         public EndTagToken Build() => new(NameBuilder.ToString());
     }
 }
+
 public record CharacterToken(char Character) : Token;
 public record EndOfFileToken : Token;
 
@@ -118,6 +132,7 @@ public static class Tokenizer
             case State.TagName: ProcessTagName(context); break;
             case State.EndTagOpen: ProcessEndTagOpen(context); break;
             case State.BeforeAttributeName: ProcessBeforeAttributeName(context); break;
+            case State.AttributeName: ProcessAttributeName(context); break;
             default: throw new NotImplementedException($"Unknown state: {context}");
         }
     }
@@ -297,7 +312,7 @@ public static class Tokenizer
 
     private static void ProcessBeforeAttributeName(Context context)
     {
-        context.TryConsumeNextInput(out var maybeCurrentInput);
+        var maybeCurrentInput = ConsumeAndSkipAllOf(context, '\t', '\n', '\f', ' ');
         if (maybeCurrentInput is null or '/' or '>')
         {
             context.ReconsumeInState(State.AfterAttributeName);
@@ -314,8 +329,54 @@ public static class Tokenizer
         }
     }
 
+    private static void ProcessAttributeName(Context context)
+    {
+        context.TryConsumeNextInput(out var maybeCurrentInput);
+        if (maybeCurrentInput is null or '\t' or '\n' or '\f' or ' ' or '/' or '>')
+        {
+            context.ReconsumeInState(State.AfterAttributeName);
+            return;
+        }
+        var currentInput = maybeCurrentInput.Value;
+        if (currentInput == '=')
+        {
+            context.State = State.BeforeAttributeValue;
+            return;
+        }
+
+        StartTagToken.Builder builder = context.CurrentTokenBuilder as StartTagToken.Builder
+            ?? throw new InvalidOperationException($"Invalid builder. Expected start tag token builder. Current: {context.CurrentTokenBuilder}.");;
+
+        if (char.IsAsciiLetterUpper(currentInput)) builder.AppendAttributeName(char.ToLowerInvariant(currentInput));
+        else if (currentInput == '\0')
+        {
+            // TODO: This is an unexpected-null-character parse error.
+            builder.AppendAttributeName(ReplacementChar);
+        }
+        else if (currentInput is '"' or '\'' or '<')
+        {
+            // TODO: This is an unexpected-null-character parse error.
+            builder.AppendAttributeName(currentInput);
+        }
+        else
+        {
+            // TODO: This is an unexpected-null-character parse error.
+            builder.AppendAttributeName(currentInput);
+        }
+    }
+
     private static bool IsWhiteSpaceOrSeparator(char value) => value == ' ' || value == '\t' || value == '\u000A' || value == '\u000C';
     private static bool IsNull(char value) => value == '\u0000';
+
+    private static char? ConsumeAndSkipAllOf(Context context, params ImmutableArray<char> chars)
+    {
+        context.TryConsumeNextInput(out var maybeCurrentInput);
+        while (maybeCurrentInput is not null && chars.Contains(maybeCurrentInput.Value))
+        {
+            continue;
+        }
+        return maybeCurrentInput;
+    }
 
     public enum State
     {

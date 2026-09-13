@@ -1,5 +1,4 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
@@ -8,17 +7,16 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="TUnit" Version="1.13.8" />
+    <None Update="**\*.html">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
-    
+
   <ItemGroup>
-      <None Update="**\*.html">
-          <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      </None>
+    <PackageReference Include="TUnit" />
   </ItemGroup>
-    
+
   <ItemGroup>
     <ProjectReference Include="..\DoctypeHtml.Parser\DoctypeHtml.Parser.csproj" />
   </ItemGroup>
-
 </Project>
