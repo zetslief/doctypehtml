@@ -142,6 +142,7 @@ public static class Tokenizer
             case State.BeforeAttributeName: ProcessBeforeAttributeName(context); break;
             case State.AttributeName: ProcessAttributeName(context); break;
             case State.BeforeAttributeValue: ProcessBeforeAttributeValue(context); break;
+            case State.AttributeValueSingleQuoted: ProcessAttributeValueSingleQuoted(context); break;
             case State.AttributeValueDoubleQuoted: ProcessAttributeValueDoubleQuoted(context); break;
             case State.AfterAttributeValueQuoted: ProcessAfterAttributeValueQuoted(context); break;
             default: throw new NotImplementedException($"Unknown state: {context}");
@@ -389,6 +390,35 @@ public static class Tokenizer
         }
         else context.ReconsumeInState(State.AttributeValueUnquoted);
     }
+
+    private static void ProcessAttributeValueSingleQuoted(Context context)
+    {
+        context.TryConsumeNextInput(out var maybeCurrentInput);
+        if (maybeCurrentInput is null)
+        {
+            // This is an eof-in-tag parse error. Emit an end-of-file token.
+            context.Emit(new EndOfFileToken());
+            return;
+        }
+        var currentInput = maybeCurrentInput.Value;
+        if (currentInput is '\'') context.State = State.AfterAttributeValueQuoted;
+        else if (currentInput is '&')
+        {
+            context.ReturnState = State.AttributeValueSingleQuoted;
+            context.State = State.CharacterReference;
+        }
+
+        var builder = context.CurrentTokenBuilder as StartTagToken.Builder
+            ?? throw new InvalidOperationException($"Invalid builder. Expected start tag token builder. Current: {context.CurrentTokenBuilder}.");;
+
+        if (currentInput is '\0')
+        {
+            // TODO: This is an unexpected-null-character parse error.
+            builder.AppendAttributeValue(ReplacementChar);
+        }
+        else builder.AppendAttributeValue(currentInput);
+    }
+
 
     private static void ProcessAttributeValueDoubleQuoted(Context context)
     {
