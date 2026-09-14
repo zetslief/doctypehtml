@@ -218,11 +218,13 @@ public static class Tokenizer
             context.State = State.Doctype;
             return;
         }
-        else if (maybeDoctype.Equals(twoHyphenMinus, StringComparison.InvariantCultureIgnoreCase))
+        var maybeTwoHyphenMinus = context.TryPeek(twoHyphenMinus.Length);
+        if (maybeTwoHyphenMinus.Equals(twoHyphenMinus, StringComparison.InvariantCultureIgnoreCase))
         {
             context.Consume(twoHyphenMinus.Length);
             context.CurrentTokenBuilder = new CommentToken.Builder();
             context.State = State.CommentStart;
+            return;
         }
         else throw new NotImplementedException($"{nameof(ProcessMarkupDeclarationOpen)}");
     }
