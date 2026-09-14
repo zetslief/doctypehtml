@@ -164,6 +164,7 @@ public static class Tokenizer
             case State.CommentStart: ProcessCommentStart(context); break;
             case State.Comment: ProcessComment(context); break;
             case State.CommentEndDash: ProcessCommentEndDash(context); break;
+            case State.CommentEnd: ProcessCommentEnd(context); break;
             default: throw new NotImplementedException($"Unknown state: {context}");
         }
     }
@@ -600,6 +601,35 @@ public static class Tokenizer
             var builder = context.GetCurrentTokenBuilder<CommentToken.Builder>();
             builder.Data.Append(currentInput);
             context.ReconsumeInState(State.Comment);
+        }
+    }
+
+    private static void ProcessCommentEnd(Context context)
+    {
+        if (!context.TryConsumeNextInput(out var currentInput))
+        {
+            // This is an eof-in-tag parse error. Emit an end-of-file token.
+            context.Emit(new EndOfFileToken());
+            return;
+        }
+        if (currentInput is '>')
+        {
+            context.State = State.Data;
+            context.EmitCurrent();
+        }
+        else if (currentInput is '!') context.State = State.CommentEndBang;
+        else
+        {
+            var builder = context.GetCurrentTokenBuilder<CommentToken.Builder>();
+            if (currentInput is '-')
+            {
+                builder.Data.Append(currentInput);
+            }
+            else
+            {
+                builder.Data.Append("--");
+                context.ReconsumeInState(State.Comment);
+            }
         }
     }
 
