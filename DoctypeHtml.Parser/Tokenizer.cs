@@ -158,6 +158,7 @@ public static class Tokenizer
             case State.AttributeValueDoubleQuoted: ProcessAttributeValueDoubleQuoted(context); break;
             case State.AfterAttributeValueQuoted: ProcessAfterAttributeValueQuoted(context); break;
             case State.SelfClosingStartTag: ProcsesSelfClosingStartTag(context); break;
+            case State.CommentStart: ProcessCommentStart(context); break;
             default: throw new NotImplementedException($"Unknown state: {context}");
         }
     }
@@ -528,13 +529,12 @@ public static class Tokenizer
 
     private static void ProcsesSelfClosingStartTag(Context context)
     {
-        if (!context.TryConsumeNextInput(out var maybeCurrentInput))
+        if (!context.TryConsumeNextInput(out var currentInput))
         {
             // This is an eof-in-tag parse error. Emit an end-of-file token.
             context.Emit(new EndOfFileToken());
             return;
         }
-        var currentInput = maybeCurrentInput.Value;
         if (currentInput is '>')
         {
             var builder = context.CurrentTokenBuilder as StartTagToken.Builder
@@ -548,6 +548,19 @@ public static class Tokenizer
             // TODO:  This is an unexpected-solidus-in-tag parse error. Reconsume in the before attribute name state.
             context.ReconsumeInState(State.BeforeAttributeName);
         }
+    }
+
+    private static void ProcessCommentStart(Context context)
+    {
+        context.TryConsumeNextInput(out var maybeCurrentInput);
+        if (maybeCurrentInput is '-') context.State = State.CommentStartDash;
+        else if (maybeCurrentInput is '>')
+        {
+            // TODO:  This is an abrupt-closing-of-empty-comment parse error. Switch to the data state. Emit the current comment token.
+            context.State = State.Data;
+            context.EmitCurrent();
+        }
+        else context.ReconsumeInState(State.Comment);
     }
 
     private static bool IsWhiteSpaceOrSeparator(char value) => value == ' ' || value == '\t' || value == '\u000A' || value == '\u000C';
