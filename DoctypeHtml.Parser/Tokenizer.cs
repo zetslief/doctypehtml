@@ -39,6 +39,7 @@ public record StartTagToken(string Name) : Token
         private Dictionary<string, string?> Attributes => field ??= new();
         public Builder AppendToName(char @char) { NameBuilder.Append(@char); return this; }
         public Builder StartAttribute() { _attribute = (string.Empty, string.Empty); return this; }
+        public bool SelfClosing { get; set; } = false;
 
         public Builder AppendAttributeName(char value)
         {
@@ -508,7 +509,26 @@ public static class Tokenizer
 
     private static void ProcsesSelfClosingStartTag(Context context)
     {
-        throw new NotImplementedException();
+        if (!context.TryConsumeNextInput(out var maybeCurrentInput))
+        {
+            // This is an eof-in-tag parse error. Emit an end-of-file token.
+            context.Emit(new EndOfFileToken());
+            return;
+        }
+        var currentInput = maybeCurrentInput.Value;
+        if (currentInput is '>')
+        {
+            var builder = context.CurrentTokenBuilder as StartTagToken.Builder
+                ?? throw new InvalidOperationException($"Invalid builder. Expected start tag token builder. Current: {context.CurrentTokenBuilder}."); ;
+            builder.SelfClosing = true;
+            context.State = State.Data;
+            context.EmitCurrent();
+        }
+        else
+        {
+            // TODO:  This is an unexpected-solidus-in-tag parse error. Reconsume in the before attribute name state.
+            context.ReconsumeInState(State.BeforeAttributeName);
+        }
     }
 
     private static bool IsWhiteSpaceOrSeparator(char value) => value == ' ' || value == '\t' || value == '\u000A' || value == '\u000C';
