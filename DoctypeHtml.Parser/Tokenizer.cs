@@ -163,6 +163,7 @@ public static class Tokenizer
             case State.SelfClosingStartTag: ProcsesSelfClosingStartTag(context); break;
             case State.CommentStart: ProcessCommentStart(context); break;
             case State.Comment: ProcessComment(context); break;
+            case State.CommentEndDash: ProcessCommentEndDash(context); break;
             default: throw new NotImplementedException($"Unknown state: {context}");
         }
     }
@@ -583,6 +584,23 @@ public static class Tokenizer
             builder.Data.Append(ReplacementChar);
         }
         else builder.Data.Append(currentInput);
+    }
+
+    private static void ProcessCommentEndDash(Context context)
+    {
+        if (!context.TryConsumeNextInput(out var currentInput))
+        {
+            // This is an eof-in-tag parse error. Emit an end-of-file token.
+            context.Emit(new EndOfFileToken());
+            return;
+        }
+        if (currentInput is '-') context.State = State.CommentEnd;
+        else
+        {
+            var builder = context.GetCurrentTokenBuilder<CommentToken.Builder>();
+            builder.Data.Append(currentInput);
+            context.ReconsumeInState(State.Comment);
+        }
     }
 
     private static bool IsWhiteSpaceOrSeparator(char value) => value == ' ' || value == '\t' || value == '\u000A' || value == '\u000C';
