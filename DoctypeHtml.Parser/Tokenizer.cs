@@ -141,6 +141,7 @@ public static class Tokenizer
             case State.EndTagOpen: ProcessEndTagOpen(context); break;
             case State.BeforeAttributeName: ProcessBeforeAttributeName(context); break;
             case State.AttributeName: ProcessAttributeName(context); break;
+            case State.AfterAttributeName: ProcessAfterAttributeName(context); break;
             case State.BeforeAttributeValue: ProcessBeforeAttributeValue(context); break;
             case State.AttributeValueSingleQuoted: ProcessAttributeValueSingleQuoted(context); break;
             case State.AttributeValueDoubleQuoted: ProcessAttributeValueDoubleQuoted(context); break;
@@ -367,13 +368,38 @@ public static class Tokenizer
         }
         else if (currentInput is '"' or '\'' or '<')
         {
-            // TODO: This is an unexpected-null-character parse error.
+            // TODO: This is an unexpected-character-in-attribute-name parse error.
             builder.AppendAttributeName(currentInput);
         }
         else
         {
-            // TODO: This is an unexpected-null-character parse error.
             builder.AppendAttributeName(currentInput);
+        }
+    }
+
+    private static void ProcessAfterAttributeName(Context context)
+    {
+        var maybeCurrentInput = ConsumeAndSkipAllOf(context, '\t', '\n', '\f', ' ');
+        if (maybeCurrentInput is null)
+        {
+            // This is an eof-in-tag parse error. Emit an end-of-file token.
+            context.Emit(new EndOfFileToken());
+            return;
+        }
+        var currentInput = maybeCurrentInput.Value;
+        if (currentInput is '/') context.State = State.SelfClosingStartTag;
+        else if (currentInput is '=') context.State = State.BeforeAttributeValue;
+        else if (currentInput is '>')
+        {
+            context.State = State.Data;
+            context.EmitCurrent();
+        }
+        else
+        {
+            var builder = context.CurrentTokenBuilder as StartTagToken.Builder
+                ?? throw new InvalidOperationException($"Invalid builder. Expected start tag token builder. Current: {context.CurrentTokenBuilder}.");;
+            builder.StartAttribute();
+            context.ReconsumeInState(State.AttributeName);
         }
     }
 
@@ -487,6 +513,7 @@ public static class Tokenizer
         context.TryConsumeNextInput(out var maybeCurrentInput);
         while (maybeCurrentInput is not null && chars.Contains(maybeCurrentInput.Value))
         {
+            context.TryConsumeNextInput(out maybeCurrentInput);
             continue;
         }
         return maybeCurrentInput;
