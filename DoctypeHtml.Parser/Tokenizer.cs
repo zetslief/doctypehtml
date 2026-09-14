@@ -59,6 +59,16 @@ public record StartTagToken(string Name) : Token
     }
 }
 
+public record CommentToken(string Data) : Token
+{
+    public sealed class Builder() : IBuilder<CommentToken>
+    {
+        public string Data { get; set; } = string.Empty;
+
+        public CommentToken Build() => new(Data);
+    }
+}
+
 public record EndTagToken(string Name) : Token
 {
     public sealed class Builder : IBuilder<EndTagToken>
@@ -200,12 +210,19 @@ public static class Tokenizer
     private static void ProcessMarkupDeclarationOpen(Context context)
     {
         const string doctype = "DOCTYPE";
+        const string twoHyphenMinus = "--";
         var maybeDoctype = context.TryPeek(doctype.Length);
-        if (maybeDoctype.Equals(doctype.AsSpan(), StringComparison.InvariantCultureIgnoreCase))
+        if (maybeDoctype.Equals(doctype, StringComparison.InvariantCultureIgnoreCase))
         {
             context.Consume(doctype.Length);
             context.State = State.Doctype;
             return;
+        }
+        else if (maybeDoctype.Equals(twoHyphenMinus, StringComparison.InvariantCultureIgnoreCase))
+        {
+            context.Consume(twoHyphenMinus.Length);
+            context.CurrentTokenBuilder = new CommentToken.Builder();
+            context.State = State.CommentStart;
         }
         else throw new NotImplementedException($"{nameof(ProcessMarkupDeclarationOpen)}");
     }

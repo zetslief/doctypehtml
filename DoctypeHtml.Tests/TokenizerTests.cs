@@ -45,4 +45,11 @@ public class TokenizerTests
         var content = File.ReadAllText("./TestData/Meta.html").AsMemory();
         Tokenizer.Run(content, Console.WriteLine);
     }
+
+    [Test]
+    public void Comments()
+    {
+        var content = File.ReadAllText("./TestData/Comments.html").AsMemory();
+        Tokenizer.Run(content, Console.WriteLine);
+    }
 }
