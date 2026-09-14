@@ -63,9 +63,9 @@ public record CommentToken(string Data) : Token
 {
     public sealed class Builder() : IBuilder<CommentToken>
     {
-        public string Data { get; set; } = string.Empty;
+        public StringBuilder Data { get; set; } = new();
 
-        public CommentToken Build() => new(Data);
+        public CommentToken Build() => new(Data.ToString());
     }
 }
 
@@ -92,6 +92,9 @@ internal class Context(ReadOnlyMemory<char> content, Action<Token> emitCallback)
     public Tokenizer.State State { get; set; } = Tokenizer.State.Data;
     public Tokenizer.State? ReturnState { get; set; } = null;
     public IBuilder? CurrentTokenBuilder { get; set; } = null;
+
+    public TBuilder GetCurrentTokenBuilder<TBuilder>() where TBuilder: class, IBuilder
+        => CurrentTokenBuilder as TBuilder  ?? throw new InvalidOperationException($"Invalid builder. Expected start tag token builder. Current: {CurrentTokenBuilder}. State: {State}");
 
     public void Emit(Token token) => _onEmit(token);
     public void EmitCurrent() => _onEmit(CurrentTokenBuilder?.Build() ?? throw new InvalidOperationException("Cannot emit null token!"));
@@ -159,6 +162,7 @@ public static class Tokenizer
             case State.AfterAttributeValueQuoted: ProcessAfterAttributeValueQuoted(context); break;
             case State.SelfClosingStartTag: ProcsesSelfClosingStartTag(context); break;
             case State.CommentStart: ProcessCommentStart(context); break;
+            case State.Comment: ProcessComment(context); break;
             default: throw new NotImplementedException($"Unknown state: {context}");
         }
     }
@@ -356,9 +360,9 @@ public static class Tokenizer
         var currentInput = maybeCurrentInput.Value;
         if (IsWhiteSpaceOrSeparator(currentInput)) return;
         else if (currentInput == '=') throw new NotImplementedException($"{nameof(ProcessBeforeAttributeName)} is not implemented for '=' case");
-        else if (context.CurrentTokenBuilder is not StartTagToken.Builder builder) throw new InvalidOperationException("Current tag builder does not exist.");
         else
         {
+            var builder = context.GetCurrentTokenBuilder<StartTagToken.Builder>();
             builder.StartAttribute();
             context.ReconsumeInState(State.AttributeName);
         }
@@ -378,10 +382,7 @@ public static class Tokenizer
             context.State = State.BeforeAttributeValue;
             return;
         }
-
-        StartTagToken.Builder builder = context.CurrentTokenBuilder as StartTagToken.Builder
-            ?? throw new InvalidOperationException($"Invalid builder. Expected start tag token builder. Current: {context.CurrentTokenBuilder}.");;
-
+        var builder = context.GetCurrentTokenBuilder<StartTagToken.Builder>();
         if (char.IsAsciiLetterUpper(currentInput)) builder.AppendAttributeName(char.ToLowerInvariant(currentInput));
         else if (currentInput == '\0')
         {
@@ -418,9 +419,8 @@ public static class Tokenizer
         }
         else
         {
-            var builder = context.CurrentTokenBuilder as StartTagToken.Builder
-                ?? throw new InvalidOperationException($"Invalid builder. Expected start tag token builder. Current: {context.CurrentTokenBuilder}.");;
-            builder.StartAttribute();
+            context.GetCurrentTokenBuilder<StartTagToken.Builder>()
+                .StartAttribute();
             context.ReconsumeInState(State.AttributeName);
         }
     }
@@ -455,10 +455,7 @@ public static class Tokenizer
             context.ReturnState = State.AttributeValueSingleQuoted;
             context.State = State.CharacterReference;
         }
-
-        var builder = context.CurrentTokenBuilder as StartTagToken.Builder
-            ?? throw new InvalidOperationException($"Invalid builder. Expected start tag token builder. Current: {context.CurrentTokenBuilder}.");;
-
+        var builder = context.GetCurrentTokenBuilder<StartTagToken.Builder>();
         if (currentInput is '\0')
         {
             // TODO: This is an unexpected-null-character parse error.
@@ -484,10 +481,7 @@ public static class Tokenizer
             context.ReturnState = State.AttributeValueDoubleQuoted;
             context.State = State.CharacterReference;
         }
-
-        var builder = context.CurrentTokenBuilder as StartTagToken.Builder
-            ?? throw new InvalidOperationException($"Invalid builder. Expected start tag token builder. Current: {context.CurrentTokenBuilder}.");;
-
+        var builder = context.GetCurrentTokenBuilder<StartTagToken.Builder>();
         if (currentInput is '\0')
         {
             // TODO: This is an unexpected-null-character parse error.
@@ -537,8 +531,7 @@ public static class Tokenizer
         }
         if (currentInput is '>')
         {
-            var builder = context.CurrentTokenBuilder as StartTagToken.Builder
-                ?? throw new InvalidOperationException($"Invalid builder. Expected start tag token builder. Current: {context.CurrentTokenBuilder}."); ;
+            var builder = context.GetCurrentTokenBuilder<StartTagToken.Builder>();
             builder.SelfClosing = true;
             context.State = State.Data;
             context.EmitCurrent();
@@ -561,6 +554,35 @@ public static class Tokenizer
             context.EmitCurrent();
         }
         else context.ReconsumeInState(State.Comment);
+    }
+
+    private static void ProcessComment(Context context)
+    {
+        if (!context.TryConsumeNextInput(out var currentInput))
+        {
+            // This is an eof-in-tag parse error. Emit an end-of-file token.
+            context.Emit(new EndOfFileToken());
+            return;
+        }
+
+        if (currentInput is '-')
+        {
+            context.State = State.CommentEndDash;
+            return;
+        }
+
+        var builder = context.GetCurrentTokenBuilder<CommentToken.Builder>();
+        if (currentInput is '<')
+        {
+            builder.Data.Append(currentInput);
+            context.State = State.CommentLessThanSign;
+        }
+        else if (currentInput is '\0')
+        {
+            // TODO: This is an unexpected-null-character parse error. Append a U+FFFD REPLACEMENT CHARACTER character to the comment token's data.
+            builder.Data.Append(ReplacementChar);
+        }
+        else builder.Data.Append(currentInput);
     }
 
     private static bool IsWhiteSpaceOrSeparator(char value) => value == ' ' || value == '\t' || value == '\u000A' || value == '\u000C';
