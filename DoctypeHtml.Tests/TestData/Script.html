@@ -1,0 +1,41 @@
+<html>
+  <head>
+  </head>
+  <body>
+    <table id="producttable">
+      <thead>
+        <tr>
+          <td>UPC_Code</td>
+          <td>Product_Name</td>
+        </tr>
+      </thead>
+      <tbody>
+      </tbody>
+    </table>
+
+    <template id="productrow">
+      <tr>
+        <td class="record"></td>
+        <td></td>
+      </tr>
+    </template>
+
+    <script>
+      if ("content" in document.createElement("template")) {
+        const tbody = document.querySelector("tbody");
+        const template = document.querySelector("#productrow");
+        const clone = document.importNode(template.content, true);
+        let td = clone.querySelectorAll("td");
+        td[0].textContent = "1235646565";
+        td[1].textContent = "Stuff";
+        tbody.appendChild(clone);
+        const clone2 = document.importNode(template.content, true);
+        td = clone2.querySelectorAll("td");
+        td[0].textContent = "0384928528";
+        td[1].textContent = "Acme Kidney Beans 2";
+        tbody.appendChild(clone2);
+      } else {
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+    <head>
+      <style>
+        @property --myColor {
+          syntax: "<color>";
+          inherits: true;
+          initial-value: rebeccapurple;
+        }
+
+        @property --myWidth {
+          syntax: "<length> | <percentage>";
+          inherits: true;
+          initial-value: 200px;
+        }
+
+        p {
+          background-color: var(--myColor);
+          width: var(--myWidth);
+          color: white;
+        }
+      </style>
+    </head>
+    <body>
+        <p>Hello, HTML!</p>
+    </body>
+</html>

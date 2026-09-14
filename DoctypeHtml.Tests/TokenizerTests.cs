@@ -24,4 +24,25 @@ public class TokenizerTests
         var content = File.ReadAllText("./TestData/Popover.html").AsMemory();
         Tokenizer.Run(content, Console.WriteLine);
     }
+
+    [Test]
+    public void Script()
+    {
+        var content = File.ReadAllText("./TestData/Script.html").AsMemory();
+        Tokenizer.Run(content, Console.WriteLine);
+    }
+
+    [Test]
+    public void Styles()
+    {
+        var content = File.ReadAllText("./TestData/Styles.html").AsMemory();
+        Tokenizer.Run(content, Console.WriteLine);
+    }
+
+    [Test]
+    public void Meta()
+    {
+        var content = File.ReadAllText("./TestData/Meta.html").AsMemory();
+        Tokenizer.Run(content, Console.WriteLine);
+    }
 }

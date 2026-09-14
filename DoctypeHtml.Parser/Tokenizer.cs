@@ -146,6 +146,7 @@ public static class Tokenizer
             case State.AttributeValueSingleQuoted: ProcessAttributeValueSingleQuoted(context); break;
             case State.AttributeValueDoubleQuoted: ProcessAttributeValueDoubleQuoted(context); break;
             case State.AfterAttributeValueQuoted: ProcessAfterAttributeValueQuoted(context); break;
+            case State.SelfClosingStartTag: ProcsesSelfClosingStartTag(context); break;
             default: throw new NotImplementedException($"Unknown state: {context}");
         }
     }
@@ -503,6 +504,11 @@ public static class Tokenizer
             // TODO: This is a missing-whitespace-between-attributes parse error.
             context.ReconsumeInState(State.BeforeAttributeName);
         }
+    }
+
+    private static void ProcsesSelfClosingStartTag(Context context)
+    {
+        throw new NotImplementedException();
     }
 
     private static bool IsWhiteSpaceOrSeparator(char value) => value == ' ' || value == '\t' || value == '\u000A' || value == '\u000C';
