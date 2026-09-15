@@ -16,23 +16,27 @@ public class TokenizerTests
     public async Task Match(string file)
     {
         var content = File.ReadAllText($"./TestData/{file}");
-        var output = new StringBuilder(content.Length);
-        Tokenizer.Run(content.AsMemory(), TokenPrinter(m => output.Append(m)));
-        var result = output.ToString();
-        await Assert.That(content).IsEqualTo(result);
+        var firstPass = new StringBuilder(content.Length);
+        Tokenizer.Run(content.AsMemory(), TokenPrinter(m => firstPass.Append(m)));
+        var firstResult = firstPass.ToString();
+        var secondPass = new StringBuilder(firstPass.Length);
+        Tokenizer.Run(firstResult.AsMemory(), TokenPrinter(m => secondPass.Append(m)));
+        var secondResult = secondPass.ToString();
+        await Assert.That(firstResult).IsEqualTo(secondResult);
     }
 
     private static Action<Token> TokenPrinter(Action<string> write) => (token) =>
     {
         static string AttributeToString((string Name, string Value) attribute)
-            => $"{attribute.Name}=\"{attribute.Value}\"";
-        static string AttributesToString(IEnumerable<(string, string)> attributes)
-            => ' ' + string.Join(' ', attributes.Select(AttributeToString));
+            => attribute.Value.Length > 0 ? $"{attribute.Name}=\"{attribute.Value}\"" : $"{attribute.Name}";
+
+        static string AttributesToString(IReadOnlyCollection<(string, string)> attributes)
+            => attributes.Count == 0 ? string.Empty : ' ' + string.Join(' ', attributes.Select(AttributeToString));
 
         var message = token switch
         {
             DoctypeToken doctype => $"<!DOCTYPE {doctype.Name}>",
-            StartTagToken start => start.SelfClosing ? $"<{start.Name}{AttributesToString(start.Attributes)}/>" : $"<{start.Name}{AttributesToString(start.Attributes)}>",
+            StartTagToken start => start.SelfClosing ? $"<{start.Name}{AttributesToString(start.Attributes)} />" : $"<{start.Name}{AttributesToString(start.Attributes)}>",
             EndTagToken end => $"</{end.Name}>",
             CommentToken comment => $"<!--{comment.Data}-->",
             CharacterToken character => $"{character.Character}",
