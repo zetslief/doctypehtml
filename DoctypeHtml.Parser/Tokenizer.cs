@@ -165,6 +165,7 @@ public static class Tokenizer
             case State.Comment: ProcessComment(context); break;
             case State.CommentEndDash: ProcessCommentEndDash(context); break;
             case State.CommentEnd: ProcessCommentEnd(context); break;
+            case State.CommentLessThanSign: ProcessCommentLessThanSign(context); break;
             default: throw new NotImplementedException($"Unknown state: {context}");
         }
     }
@@ -631,6 +632,19 @@ public static class Tokenizer
                 context.ReconsumeInState(State.Comment);
             }
         }
+    }
+
+    private static void ProcessCommentLessThanSign(Context context)
+    {
+        context.TryConsumeNextInput(out var maybeCurrentInput);
+        if (maybeCurrentInput is '!')
+        {
+            var builder = context.GetCurrentTokenBuilder<CommentToken.Builder>();
+            builder.Data.Append(maybeCurrentInput.Value);
+            context.State = State.CommentLessThanSignBang;
+        }
+        else if (maybeCurrentInput is '<') context.GetCurrentTokenBuilder<CommentToken.Builder>().Data.Append(maybeCurrentInput.Value);
+        else context.ReconsumeInState(State.Comment);
     }
 
     private static bool IsWhiteSpaceOrSeparator(char value) => value == ' ' || value == '\t' || value == '\u000A' || value == '\u000C';
