@@ -22,8 +22,12 @@ public class TokenizerTests
         var secondPass = new StringBuilder(firstPass.Length);
         Tokenizer.Run(firstResult.AsMemory(), TokenPrinter(m => secondPass.Append(m)));
         var secondResult = secondPass.ToString();
+        Console.WriteLine(firstResult);
         await Assert.That(firstResult).IsEqualTo(secondResult);
     }
+
+    [Test]
+    public Task Fragment() => Match("Fragment.html");
 
     private static Action<Token> TokenPrinter(Action<string> write) => (token) =>
     {
@@ -33,7 +37,7 @@ public class TokenizerTests
         static string AttributesToString(IReadOnlyCollection<(string, string)> attributes)
             => attributes.Count == 0 ? string.Empty : ' ' + string.Join(' ', attributes.Select(AttributeToString));
 
-        var message = token switch
+        write(token switch
         {
             DoctypeToken doctype => $"<!DOCTYPE {doctype.Name}>",
             StartTagToken start => start.SelfClosing ? $"<{start.Name}{AttributesToString(start.Attributes)} />" : $"<{start.Name}{AttributesToString(start.Attributes)}>",
@@ -42,7 +46,6 @@ public class TokenizerTests
             CharacterToken character => $"{character.Character}",
             EndOfFileToken _ => Environment.NewLine,
             var other => throw new NotImplementedException($"Token Printer is not implemented for {other}."),
-        };
-        write(message);
+        });
     };
 }
