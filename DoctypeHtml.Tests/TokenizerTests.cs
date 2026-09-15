@@ -5,15 +5,16 @@ namespace DoctypeHtml.Tests;
 
 public class TokenizerTests
 {
-    [Test]
-    [Arguments("Basic.html")]
-    [Arguments("Attributes.html")]
-    [Arguments("Comments.html")]
-    [Arguments("Meta.html")]
-    [Arguments("Popover.html")]
-    [Arguments("Script.html")]
-    [Arguments("Styles.html")]
-    public async Task Match(string file)
+    [Test] public Task Basic() => Match("Basic.html");
+    [Test] public Task Attributes() => Match("Attributes.html");
+    [Test] public Task Comments() => Match("Comments.html");
+    [Test] public Task Meta() => Match("Meta.html");
+    [Test] public Task Popover() => Match("Popover.html");
+    [Test] public Task Script() => Match("Script.html");
+    [Test] public Task Styles() => Match("Styles.html");
+    [Test] public Task Fragment() => Match("Fragment.html");
+
+    private static async Task Match(string file)
     {
         var content = File.ReadAllText($"./TestData/{file}");
         var firstPass = new StringBuilder(content.Length);
@@ -25,9 +26,6 @@ public class TokenizerTests
         Console.WriteLine(firstResult);
         await Assert.That(firstResult).IsEqualTo(secondResult);
     }
-
-    [Test]
-    public Task Fragment() => Match("Fragment.html");
 
     private static Action<Token> TokenPrinter(Action<string> write) => (token) =>
     {
