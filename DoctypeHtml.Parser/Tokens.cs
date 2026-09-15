@@ -28,7 +28,7 @@ public record DoctypeToken(string Name) : Token
     }
 }
 
-public record StartTagToken(string Name) : Token
+public record StartTagToken(string Name, bool SelfClosing) : Token
 {
     public sealed class Builder : IBuilder<StartTagToken>
     {
@@ -53,7 +53,7 @@ public record StartTagToken(string Name) : Token
             return this;
         }
 
-        public StartTagToken Build() => new(NameBuilder.ToString());
+        public StartTagToken Build() => new(NameBuilder.ToString(), this.SelfClosing);
     }
 }
 
