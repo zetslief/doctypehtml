@@ -330,13 +330,16 @@ public static class Tokenizer
             context.ReturnState = State.AttributeValueSingleQuoted;
             context.State = State.CharacterReference;
         }
-        var builder = context.GetCurrentTokenBuilder<StartTagToken.Builder>();
-        if (currentInput is '\0')
+        else
         {
-            // TODO: This is an unexpected-null-character parse error.
-            builder.AppendAttributeValue(ReplacementChar);
+            var builder = context.GetCurrentTokenBuilder<StartTagToken.Builder>();
+            if (currentInput is '\0')
+            {
+                // TODO: This is an unexpected-null-character parse error.
+                builder.AppendAttributeValue(ReplacementChar);
+            }
+            else builder.AppendAttributeValue(currentInput);
         }
-        else builder.AppendAttributeValue(currentInput);
     }
 
 
@@ -350,19 +353,25 @@ public static class Tokenizer
             return;
         }
         var currentInput = maybeCurrentInput.Value;
-        if (currentInput is '"') context.State = State.AfterAttributeValueQuoted;
+        if (currentInput is '"')
+        {
+            context.State = State.AfterAttributeValueQuoted;
+        }
         else if (currentInput is '&')
         {
             context.ReturnState = State.AttributeValueDoubleQuoted;
             context.State = State.CharacterReference;
         }
-        var builder = context.GetCurrentTokenBuilder<StartTagToken.Builder>();
-        if (currentInput is '\0')
+        else
         {
-            // TODO: This is an unexpected-null-character parse error.
-            builder.AppendAttributeValue(ReplacementChar);
+            var builder = context.GetCurrentTokenBuilder<StartTagToken.Builder>();
+            if (currentInput is '\0')
+            {
+                // TODO: This is an unexpected-null-character parse error.
+                builder.AppendAttributeValue(ReplacementChar);
+            }
+            else builder.AppendAttributeValue(currentInput);
         }
-        else builder.AppendAttributeValue(currentInput);
     }
 
     private static void ProcessAfterAttributeValueQuoted(Context context)
