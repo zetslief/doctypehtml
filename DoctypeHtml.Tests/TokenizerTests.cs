@@ -24,10 +24,15 @@ public class TokenizerTests
 
     private static Action<Token> TokenPrinter(Action<string> write) => (token) =>
     {
+        static string AttributeToString((string Name, string Value) attribute)
+            => $"{attribute.Name}=\"{attribute.Value}\"";
+        static string AttributesToString(IEnumerable<(string, string)> attributes)
+            => ' ' + string.Join(' ', attributes.Select(AttributeToString));
+
         var message = token switch
         {
             DoctypeToken doctype => $"<!DOCTYPE {doctype.Name}>",
-            StartTagToken start => start.SelfClosing ? $"<{start.Name} />" : $"<{start.Name}>",
+            StartTagToken start => start.SelfClosing ? $"<{start.Name}{AttributesToString(start.Attributes)}/>" : $"<{start.Name}{AttributesToString(start.Attributes)}>",
             EndTagToken end => $"</{end.Name}>",
             CommentToken comment => $"<!--{comment.Data}-->",
             CharacterToken character => $"{character.Character}",

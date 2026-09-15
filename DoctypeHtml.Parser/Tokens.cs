@@ -28,16 +28,24 @@ public record DoctypeToken(string Name) : Token
     }
 }
 
-public record StartTagToken(string Name, bool SelfClosing) : Token
+public record StartTagToken(string Name, bool SelfClosing, List<(string Name, string Value)> Attributes) : Token
 {
     public sealed class Builder : IBuilder<StartTagToken>
     {
         private StringBuilder NameBuilder => field ??= new();
         private (string Name, string Value)? _attribute = null;
-        private Dictionary<string, string?> Attributes => field ??= new();
-        public Builder AppendToName(char @char) { NameBuilder.Append(@char); return this; }
-        public Builder StartAttribute() { _attribute = (string.Empty, string.Empty); return this; }
+        private readonly List<(string, string)> _attributes = [];
+
         public bool SelfClosing { get; set; } = false;
+
+        public Builder AppendToName(char @char) { NameBuilder.Append(@char); return this; }
+
+        public Builder StartAttribute()
+        {
+            if (_attribute.HasValue) _attributes.Add((_attribute.Value.Name, _attribute.Value.Value));
+            _attribute = (string.Empty, string.Empty);
+            return this;
+        }
 
         public Builder AppendAttributeName(char value)
         {
@@ -53,7 +61,11 @@ public record StartTagToken(string Name, bool SelfClosing) : Token
             return this;
         }
 
-        public StartTagToken Build() => new(NameBuilder.ToString(), this.SelfClosing);
+        public StartTagToken Build()
+        {
+            if (_attribute.HasValue) _attributes.Add((_attribute.Value.Name, _attribute.Value.Value));
+            return new(NameBuilder.ToString(), SelfClosing, _attributes);
+        }
     }
 }
 
