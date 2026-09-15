@@ -13,12 +13,13 @@ public class TokenizerTests
     [Arguments("Popover.html")]
     [Arguments("Script.html")]
     [Arguments("Styles.html")]
-    public void Match(string file)
+    public async Task Match(string file)
     {
-        var content = File.ReadAllText($"./TestData/{file}").AsMemory();
+        var content = File.ReadAllText($"./TestData/{file}");
         var output = new StringBuilder(content.Length);
-        Tokenizer.Run(content, TokenPrinter(m => output.Append(m)));
-        Console.WriteLine(output.ToString());
+        Tokenizer.Run(content.AsMemory(), TokenPrinter(m => output.Append(m)));
+        var result = output.ToString();
+        await Assert.That(content).IsEqualTo(result);
     }
 
     private static Action<Token> TokenPrinter(Action<string> write) => (token) =>
