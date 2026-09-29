@@ -8,6 +8,7 @@ public class BasicTests
     const string BasicHtml = """
     <html>
         <htmlt-component-example />
+        <input value="hello" />
     </html>
     """;
 
@@ -20,7 +21,6 @@ public class BasicTests
     [Test]
     public async Task BasicComponent()
     {
-        var builder = new StringBuilder(BasicHtml.Length + ComponentExample.Length);
         var rootComponent = new HtmlT.Component(BasicHtml, new Dictionary<string, Component>
         {
             { "htmlt-component-example", new Component(ComponentExample, []) },
