@@ -28,5 +28,9 @@ public sealed class HtmlTemplate()
     };
 
     private string SelfClosingTagToString(Component component, StartTagToken token)
-        => component.Children.TryGetValue(token.Name, out var found) ? Render(found) : $"<{token.Name} />";
+    {
+        return component.Children.TryGetValue(token.Name, out var found)
+            ? Render(found)
+            : $"<{token.Name} {string.Join(' ', token.Attributes.Select(a => $"{a.Name}='{a.Value}'"))}/>";
+    }
 }
