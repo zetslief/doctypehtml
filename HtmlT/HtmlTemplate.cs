@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using System.Diagnostics;
 
 using DoctypeHtml.Parser;
 
@@ -10,6 +11,21 @@ public record struct Result<T, E>(T? Value, E? Error) where E : struct
     public static Result<T, E> Fail(E error) => new(default, error);
 
     public readonly bool IsError => Error.HasValue;
+}
+
+public static class ResultExtensions
+{
+    extension<T, E>(Result<T, E> result) where E: struct
+    {
+        public Result<T, E> ThenTry(Func<T, Result<T, E>> then)
+        {
+            if (result.IsError) return result;
+            Debug.Assert(result.Value is not null);
+            return then(result.Value);
+        }
+
+        public Result<NT, E> FailAs<NT>() => new(default, result.Error);
+    }
 }
 
 public enum IOError
