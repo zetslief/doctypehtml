@@ -50,7 +50,7 @@ public sealed class HtmlTemplate()
     private string TokenToString(Component component, Token token) => token switch
     {
         DoctypeToken doctype => $"<!DOCTYPE {doctype.Name}>",
-        StartTagToken startTag => startTag.SelfClosing ? SelfClosingTagToString(component, startTag) : $"<{startTag.Name}>",
+        StartTagToken startTag => startTag.SelfClosing ? SelfClosingTagToString(component, startTag) : OpenTagToString(startTag),
         EndTagToken endTag => $"</{endTag.Name}>",
         CharacterToken character => $"{character.Character}",
         CommentToken comment => $"<!--{comment.Data}-->",
@@ -59,10 +59,13 @@ public sealed class HtmlTemplate()
     };
 
     private string SelfClosingTagToString(Component component, StartTagToken token)
+        => component.Children.TryGetValue(token.Name, out var found) ? Render(found) : OpenTagToString(token);
+
+    private static string OpenTagToString(StartTagToken token)
     {
-        return component.Children.TryGetValue(token.Name, out var found)
-            ? Render(found)
-            : $"<{token.Name} {string.Join(' ', token.Attributes.Select(a => $"{a.Name}='{a.Value}'"))}/>";
+        var args = string.Join(' ', token.Attributes.Select(a => $"{a.Name}='{a.Value}'"));
+        var end = token.SelfClosing ? "/" : string.Empty;
+        return $"<{token.Name} {args}{end}>";
     }
 }
 
