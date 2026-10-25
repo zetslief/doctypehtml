@@ -16,6 +16,16 @@ public class BasicTests
     </div>
     """;
 
+    const string Expectation = """
+    <html >
+        <div >
+        <h1 >Hello, HTML!</h1>
+    </div>
+        <input value='hello'/>
+        <p class='hello'>Hello</p>
+    </html>
+    """;
+
     [Test]
     public async Task BasicComponent()
     {
@@ -25,5 +35,6 @@ public class BasicTests
         var htmlTemplate = new HtmlTemplate();
         var page = htmlTemplate.Render(rootComponent);
         Console.WriteLine(page);
+        await Assert.That(page).IsEqualTo(Expectation);
     }
 }
