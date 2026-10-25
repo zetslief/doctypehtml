@@ -63,9 +63,19 @@ public sealed class HtmlTemplate()
 
     private static string OpenTagToString(StartTagToken token)
     {
-        var args = string.Join(' ', token.Attributes.Select(a => $"{a.Name}='{a.Value}'"));
-        var end = token.SelfClosing ? "/" : string.Empty;
-        return $"<{token.Name} {args}{end}>";
+        StringBuilder builder = new(100);
+        builder.Append('<');
+        builder.Append(token.Name);
+        if (token.Attributes.Count > 0) builder.Append(' ');
+        foreach (var (name, value) in token.Attributes)
+        {
+            builder.Append(name);
+            builder.Append("='");
+            builder.Append(value);
+            builder.Append('\'');
+        }
+        builder.Append(token.SelfClosing ? "/>" : ">");
+        return builder.ToString();
     }
 }
 

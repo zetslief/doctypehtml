@@ -17,9 +17,9 @@ public class BasicTests
     """;
 
     const string Expectation = """
-    <html >
-        <div >
-        <h1 >Hello, HTML!</h1>
+    <html>
+        <div>
+        <h1>Hello, HTML!</h1>
     </div>
         <input value='hello'/>
         <p class='hello'>Hello</p>
