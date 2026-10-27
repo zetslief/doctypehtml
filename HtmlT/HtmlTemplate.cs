@@ -38,6 +38,8 @@ public record HtmlComponent(string Content, Dictionary<string, Component> Childr
 public record CssComponent(string Content, Dictionary<string, Component> Children) : Component($"<style>{Content}</style>", Children);
 public record JsComponent(string Content, Dictionary<string, Component> Children) : Component($"<script>{Content}</script>", Children);
 
+public record TextComponent(string Content) : Component(Content, []); 
+
 public sealed class HtmlTemplate()
 {
     public string Render(Component page)
@@ -97,6 +99,8 @@ public class ComponentBuilder(Component initialComponent)
     public static Result<ComponentBuilder, IOError> FromJsFile(string filePath) => File.Exists(filePath)
         ? Result<ComponentBuilder, IOError>.Ok(FromJs(File.ReadAllText(filePath)))
         : Result<ComponentBuilder, IOError>.Fail(IOError.FileNotFound);
+    
+    public static TextComponent Text(string content) => new(content);
 
     public ComponentBuilder AddChild(string name, Component script) { _component.Children[name] = script; return this; }
 

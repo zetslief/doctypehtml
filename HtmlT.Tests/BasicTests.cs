@@ -6,7 +6,7 @@ public class BasicTests
     <html>
         <htmlt-component-example />
         <input value="hello" />
-        <p class="hello">Hello</p>
+        <p class="hello"><hellotext /></p>
     </html>
     """;
 
@@ -31,6 +31,7 @@ public class BasicTests
     {
         var rootComponent = ComponentBuilder.FromHtml(BasicHtml)
             .AddChild("htmlt-component-example", ComponentBuilder.FromHtml(ComponentExample).Build())
+            .AddChild("hellotext", ComponentBuilder.Text("Hello"))
             .Build();
         var htmlTemplate = new HtmlTemplate();
         var page = htmlTemplate.Render(rootComponent);
