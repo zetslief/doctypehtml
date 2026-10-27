@@ -39,13 +39,23 @@ public record CssComponent(string Content, Dictionary<string, Component> Childre
 public record JsComponent(string Content, Dictionary<string, Component> Children) : Component($"<script>{Content}</script>", Children);
 
 public record TextComponent(string Content) : Component(Content, []); 
+public record ListComponent(IEnumerable<Component> Components) : Component(string.Empty, []);
 
 public sealed class HtmlTemplate()
 {
     public string Render(Component page)
     {
         var output = new StringBuilder(page.Content.Length * 2);
-        Tokenizer.Run(page.Content.AsMemory(), t => output.Append(TokenToString(page, t)));
+        switch (page)
+        {
+            case HtmlComponent htmlComponent: Tokenizer.Run(page.Content.AsMemory(), t => output.Append(TokenToString(page, t))); break;
+            case CssComponent css: output.Append(css.Content); break;
+            case JsComponent js: output.Append(js.Content); break;
+            case TextComponent text: output.Append(text.Content); break;
+            case ListComponent list: foreach (var item in list.Components) output.Append(Render(item));
+                break;
+            default: throw new NotImplementedException($"{page.GetType()} is not supported. Component: {page}");
+        }
         return output.ToString();
     }
 
@@ -101,6 +111,7 @@ public class ComponentBuilder(Component initialComponent)
         : Result<ComponentBuilder, IOError>.Fail(IOError.FileNotFound);
     
     public static TextComponent Text(string content) => new(content);
+    public static ListComponent List(IEnumerable<Component> components) => new(components);
 
     public ComponentBuilder AddChild(string name, Component script) { _component.Children[name] = script; return this; }
 
