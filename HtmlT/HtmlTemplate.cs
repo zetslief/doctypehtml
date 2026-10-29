@@ -50,7 +50,7 @@ public sealed class HtmlTemplate()
         {
             case HtmlComponent html: Tokenizer.Run(html.Content.AsMemory(), t => output.Append(TokenToString(html, t))); break;
             case CssComponent css: output.Append($"<style>{css.Content}</style>"); break;
-            case JsComponent js: output.Append($"<script>{js.Content}</style>"); break;
+            case JsComponent js: output.Append($"<script>{js.Content}</script>"); break;
             case TextComponent text: output.Append(text.Content); break;
             case ListComponent list: foreach (var item in list.Components) output.Append(Render(item));
                 break;
