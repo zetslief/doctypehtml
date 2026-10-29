@@ -5,7 +5,7 @@ public class BasicTests
     const string BasicHtml = """
     <html>
         <htmlt-component-example />
-        <input value="hello" />
+        <input id-example="id-value" value="hello" />
         <p class="hello"><hellotext /></p>
     </html>
     """;
@@ -21,7 +21,7 @@ public class BasicTests
         <div>
         <h1>Hello, HTML!</h1>
     </div>
-        <input value='hello'/>
+        <input id-example-expected='id-value-expected' value='hello' />
         <p class='hello'>Hello</p>
     </html>
     """;
@@ -32,6 +32,8 @@ public class BasicTests
         var rootComponent = ComponentBuilder.FromHtml(BasicHtml)
             .AddChild("htmlt-component-example", ComponentBuilder.FromHtml(ComponentExample).Build())
             .AddChild("hellotext", ComponentBuilder.Text("Hello"))
+            .AddData("id-example", "id-example-expected")
+            .AddData("id-value", "id-value-expected")
             .Build();
         var htmlTemplate = new HtmlTemplate();
         var page = htmlTemplate.Render(rootComponent);
