@@ -29,10 +29,11 @@ public class TokenizerTests
 
     private static Action<Token> TokenPrinter(Action<string> write) => (token) =>
     {
-        static string AttributeToString((string Name, string Value) attribute)
-            => attribute.Value.Length > 0 ? $"{attribute.Name}=\"{attribute.Value}\"" : $"{attribute.Name}";
+        static string AttributeToString((string Name, string? Value) attribute)
+            => attribute.Value is null ? $"{attribute.Name}"
+                : attribute.Value.Length > 0 ? $"{attribute.Name}=\"{attribute.Value}\"" : $"{attribute.Name}";
 
-        static string AttributesToString(IReadOnlyCollection<(string, string)> attributes)
+        static string AttributesToString(IReadOnlyCollection<(string, string?)> attributes)
             => attributes.Count == 0 ? string.Empty : ' ' + string.Join(' ', attributes.Select(AttributeToString));
 
         write(token switch

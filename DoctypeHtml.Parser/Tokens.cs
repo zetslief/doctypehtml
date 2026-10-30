@@ -28,13 +28,13 @@ public record DoctypeToken(string Name) : Token
     }
 }
 
-public record StartTagToken(string Name, bool SelfClosing, List<(string Name, string Value)> Attributes) : Token
+public record StartTagToken(string Name, bool SelfClosing, List<(string Name, string? Value)> Attributes) : Token
 {
     public sealed class Builder : IBuilder<StartTagToken>
     {
         private StringBuilder NameBuilder => field ??= new();
-        private (string Name, string Value)? _attribute = null;
-        private readonly List<(string, string)> _attributes = [];
+        private (string Name, string? Value)? _attribute = null;
+        private readonly List<(string, string?)> _attributes = [];
 
         public bool SelfClosing { get; set; } = false;
 
@@ -43,7 +43,7 @@ public record StartTagToken(string Name, bool SelfClosing, List<(string Name, st
         public Builder StartAttribute()
         {
             if (_attribute.HasValue) _attributes.Add((_attribute.Value.Name, _attribute.Value.Value));
-            _attribute = (string.Empty, string.Empty);
+            _attribute = (string.Empty, null);
             return this;
         }
 
@@ -57,7 +57,7 @@ public record StartTagToken(string Name, bool SelfClosing, List<(string Name, st
         public Builder AppendAttributeValue(char value)
         {
             if (_attribute is null) throw new InvalidOperationException("Cannot append to attribute value - attribute not started.");
-            _attribute = (_attribute.Value.Name, _attribute.Value.Value + value);
+            _attribute = (_attribute.Value.Name, (_attribute.Value.Value ?? "") + value);
             return this;
         }
 

@@ -80,8 +80,18 @@ public sealed class HtmlTemplate()
         builder.Append(token.Name);
         foreach (var (name, value) in token.Attributes)
         {
-            builder.Append(' ');
-            builder.Append(component.DataSlots.TryGetValue(name, out var nameSlot) ? nameSlot : name);
+            if (component.DataSlots.TryGetValue(name, out var nameSlot))
+            {
+                if (string.IsNullOrEmpty(nameSlot)) continue; // removing attribute -> full skip.
+                builder.Append(' ');
+                builder.Append(nameSlot);
+            }
+            else
+            {
+                builder.Append(' ');
+                builder.Append(name);
+            }
+            if (value is null) continue;
             builder.Append("='");
             builder.Append(component.DataSlots.TryGetValue(value, out var valueSlot) ? valueSlot : value);
             builder.Append('\'');
