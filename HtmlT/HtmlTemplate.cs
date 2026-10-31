@@ -106,19 +106,8 @@ public class ComponentBuilder(Component initialComponent)
     private readonly Component _component = initialComponent;
 
     public static HtmlComponentBuilder FromHtml(string content) => new(new HtmlComponent(content, [], []));
-    public static Result<HtmlComponentBuilder, IOError> FromHtmlFile(string filePath) => File.Exists(filePath)
-        ? Result<HtmlComponentBuilder, IOError>.Ok(FromHtml(File.ReadAllText(filePath)))
-        : Result<HtmlComponentBuilder, IOError>.Fail(IOError.FileNotFound);
-
-    public static ComponentBuilder FromCss(string content) => new(new CssComponent(content));
-    public static Result<ComponentBuilder, IOError> FromCssFile(string filePath) => File.Exists(filePath)
-        ? Result<ComponentBuilder, IOError>.Ok(FromCss(File.ReadAllText(filePath)))
-        : Result<ComponentBuilder, IOError>.Fail(IOError.FileNotFound);
-
-    public static ComponentBuilder FromJs(string content) => new(new JsComponent(content));
-    public static Result<ComponentBuilder, IOError> FromJsFile(string filePath) => File.Exists(filePath)
-        ? Result<ComponentBuilder, IOError>.Ok(FromJs(File.ReadAllText(filePath)))
-        : Result<ComponentBuilder, IOError>.Fail(IOError.FileNotFound);
+    public static ComponentBuilder FromCss(params IEnumerable<string> styles) => new(new CssComponent(string.Join('\n', styles)));
+    public static ComponentBuilder FromJs(params IEnumerable<string> scripts) => new(new JsComponent(string.Join('\n', scripts)));
     
     public static TextComponent Text(string content) => new(content);
     public static ListComponent List(IEnumerable<HtmlComponent> components) => new(components);
