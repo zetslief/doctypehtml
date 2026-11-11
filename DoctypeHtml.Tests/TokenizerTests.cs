@@ -5,15 +5,14 @@ namespace DoctypeHtml.Tests;
 
 public class TokenizerTests
 {
-    [Test] public Task Basic() => Match("Basic.html");
-    [Test] public Task Attributes() => Match("Attributes.html");
-    [Test] public Task Comments() => Match("Comments.html");
-    [Test] public Task Meta() => Match("Meta.html");
-    [Test] public Task Popover() => Match("Popover.html");
-    [Test] public Task Script() => Match("Script.html");
-    [Test] public Task Styles() => Match("Styles.html");
-    [Test] public Task Fragment() => Match("Fragment.html");
-
+    [Fact] public Task Basic() => Match("Basic.html");
+    [Fact] public Task Attributes() => Match("Attributes.html");
+    [Fact] public Task Comments() => Match("Comments.html");
+    [Fact] public Task Meta() => Match("Meta.html");
+    [Fact] public Task Popover() => Match("Popover.html");
+    [Fact] public Task Script() => Match("Script.html");
+    [Fact] public Task Styles() => Match("Styles.html");
+    [Fact] public Task Fragment() => Match("Fragment.html");
     private static async Task Match(string file)
     {
         var content = File.ReadAllText($"./TestData/{file}");
@@ -24,7 +23,7 @@ public class TokenizerTests
         Tokenizer.Run(firstResult.AsMemory(), TokenPrinter(m => secondPass.Append(m)));
         var secondResult = secondPass.ToString();
         Console.WriteLine(firstResult);
-        await Assert.That(firstResult).IsEqualTo(secondResult);
+        Assert.Equal(firstResult, secondResult);
     }
 
     private static Action<Token> TokenPrinter(Action<string> write) => (token) =>
