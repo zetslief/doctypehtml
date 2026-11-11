@@ -30,7 +30,7 @@ public class BasicTests
     </html>
     """;
 
-    [Test]
+    [Fact]
     public async Task BasicComponent()
     {
         var rootComponent = ComponentBuilder.FromHtml(BasicHtml)
@@ -44,6 +44,6 @@ public class BasicTests
         var htmlTemplate = new HtmlTemplate();
         var page = htmlTemplate.Render(rootComponent);
         Console.WriteLine(page);
-        await Assert.That(page).IsEqualTo(Expectation);
+        Assert.Equal(Expectation, page);
     }
 }
